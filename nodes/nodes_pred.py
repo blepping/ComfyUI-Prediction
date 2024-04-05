@@ -5,6 +5,14 @@ import torch
 import latent_preview
 from tqdm import tqdm
 
+if hasattr(comfy.samplers, "calc_cond_batch"):
+    # Recent versions of ComfyUI deprecate using calc_cond_uncond_batch and provide calc_cond_batch.
+    def calc_cond_uncond_batch(model, cond, uncond, x_in, timestep, model_options):
+        return comfy.samplers.calc_cond_batch(model, [cond, uncond], x_in, timestep, model_options)
+else:
+    # Compatibility for older versions of ComfyUI that don't provide calc_cond_batch.
+    calc_cond_uncond_batch = comfy.samplers.calc_cond_uncond_batch
+
 class CustomNoisePredictor(torch.nn.Module):
     def __init__(self, model, pred, preds, conds):
         super().__init__()
@@ -325,7 +333,7 @@ class ConditionedPredictor(CachingNoisePredictor):
         return 1
 
     def predict_noise_uncached(self, x, timestep, model, conds, model_options, seed):
-        pred, _ = comfy.samplers.calc_cond_uncond_batch(
+        pred, _ = calc_cond_uncond_batch(
             model,
             conds[self.cond_name],
             None,
@@ -997,7 +1005,7 @@ class CFGPredictor(CachingNoisePredictor):
         return 2
 
     def predict_noise_uncached(self, x, timestep, model, conds, model_options, seed):
-        cond, uncond = comfy.samplers.calc_cond_uncond_batch(
+        cond, uncond = calc_cond_uncond_batch(
             model,
             conds["positive"],
             conds["negative"],
@@ -1052,7 +1060,7 @@ class PerpNegPredictor(CachingNoisePredictor):
         return 3
 
     def predict_noise_uncached(self, x, timestep, model, conds, model_options, seed):
-        cond, uncond = comfy.samplers.calc_cond_uncond_batch(
+        cond, uncond = calc_cond_uncond_batch(
             model,
             conds["positive"],
             conds["negative"],
@@ -1061,7 +1069,7 @@ class PerpNegPredictor(CachingNoisePredictor):
             model_options
         )
 
-        empty, _ = comfy.samplers.calc_cond_uncond_batch(
+        empty, _ = calc_cond_uncond_batch(
             model,
             conds["empty"],
             None,
